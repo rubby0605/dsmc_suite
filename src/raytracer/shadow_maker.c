@@ -68,17 +68,12 @@ void mesh_free(Mesh *m) {
 }
 
 void mesh_compute_normals(Mesh *m) {
-    /* Normalize vertices to unit sphere */
-    for (int i = 0; i < m->npoint; i++) {
-        double len = sqrt(m->spot[i][0] * m->spot[i][0] +
-                          m->spot[i][1] * m->spot[i][1] +
-                          m->spot[i][2] * m->spot[i][2]);
-        if (len > 0) {
-            m->spot[i][0] /= len;
-            m->spot[i][1] /= len;
-            m->spot[i][2] /= len;
-        }
-    }
+    /* NOTE: Do NOT normalize vertices to unit sphere here.
+     * The original MATLAB code does this because its mesh is already
+     * near-spherical, but for real meshes (e.g. NASA Vesta) this
+     * destroys the triaxial shape and can flip triangle winding,
+     * causing incorrect face normals (dark spots on lit surfaces).
+     * The caller should pre-normalize the mesh to unit scale if needed. */
 
     for (int nf = 0; nf < m->nface; nf++) {
         Vec3 aa = {m->spot[m->facet[nf][0]][0], m->spot[m->facet[nf][0]][1],
@@ -98,7 +93,7 @@ void mesh_compute_normals(Mesh *m) {
         Vec3 c2 = vec3_sub(cc, aa);
 
         /* Area (half cross product magnitude) */
-        m->face_area[nf] = vec3_dot(c1, c2) / 2.0;
+        m->face_area[nf] = vec3_len(vec3_cross(c1, c2)) / 2.0;
 
         /* Normal = cross(c2_hat, c1_hat) (outward convention from MATLAB) */
         Vec3 c2n = vec3_normalize(c2);
@@ -133,7 +128,7 @@ void shadow_find_neighbors(const Mesh *m, double za, int tt,
     }
 
     for (int t = 0; t < tt; t++) {
-        double fi = ((t + 0.5) / tt) * 2.0 * M_PI;
+        double fi = ((t + 0.5) / tt) * 2.0 * M_PI + M_PI;
         Vec3 solar = {cos(-za) * sin(fi), cos(-za) * cos(fi), sin(-za)};
 
         for (int nf = 0; nf < m->nface; nf++) {
