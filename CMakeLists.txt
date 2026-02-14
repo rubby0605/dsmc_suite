@@ -37,8 +37,30 @@ else()
     find_package(OpenMP REQUIRED)
 endif()
 
+# Embree ray tracing (brew install embree)
+if(APPLE)
+    execute_process(
+        COMMAND brew --prefix embree
+        OUTPUT_VARIABLE EMBREE_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if(EMBREE_PREFIX)
+        message(STATUS "Found Homebrew Embree at: ${EMBREE_PREFIX}")
+        set(EMBREE_INCLUDE_DIR "${EMBREE_PREFIX}/include")
+        set(EMBREE_LIBRARY "${EMBREE_PREFIX}/lib/libembree4.dylib")
+    else()
+        message(FATAL_ERROR "Embree not found. Install with: brew install embree")
+    endif()
+else()
+    find_package(embree 4 REQUIRED)
+    set(EMBREE_INCLUDE_DIR ${embree_INCLUDE_DIRS})
+    set(EMBREE_LIBRARY embree)
+endif()
+
 # Include dirs
 include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${EMBREE_INCLUDE_DIR})
 
 # Math library
 find_library(MATH_LIBRARY m)
@@ -65,7 +87,7 @@ add_executable(dsmc_suite
     src/raytracer/shadow_maker.c
     src/thermal/thermal_model.c
 )
-target_link_libraries(dsmc_suite PRIVATE dsmc_common)
+target_link_libraries(dsmc_suite PRIVATE dsmc_common ${EMBREE_LIBRARY})
 
 # Test executable
 add_executable(test_verlet tests/test_verlet.c)
